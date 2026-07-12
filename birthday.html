@@ -677,6 +677,12 @@
         font-size: 12px;
         text-align: center;
       }
+      .memframe video.thumb {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
       .memframe .cap {
         font-family: "Playfair Display", serif;
         font-size: 11px;
@@ -782,6 +788,23 @@
         font-size: 13px;
         text-align: center;
         background: linear-gradient(160deg, #2a1830, #160f22);
+      }
+      .photo-ring {
+        position: absolute;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 200, 160, 0.5);
+        opacity: 0;
+        pointer-events: none;
+      }
+      .sparkle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: #fff3d6;
+        box-shadow: 0 0 6px 2px rgba(255, 230, 180, 0.9);
+        opacity: 0;
+        pointer-events: none;
       }
       #finalText {
         position: absolute;
@@ -1080,10 +1103,19 @@
           </div>
 
           <div class="scene" id="scene8">
+            <div id="photoRing" class="photo-ring"></div>
+            <div
+              id="sparkleWrap"
+              style="position: absolute; inset: 0; pointer-events: none"
+            ></div>
             <div id="finalPhoto">Your<br />Favorite<br />Photo</div>
             <div id="finalText">
-              <h1>Happy Birthday ❤️ My Love</h1>
+              <h1>Once Again Happy Birthday ❤️Sanu</h1>
               <p>Thank You For Making My Life Beautiful.</p>
+              <h4>
+                And I Love You So Much ❤️ <br />
+                Sweet Heart❤️
+              </h4>
             </div>
           </div>
 
@@ -1135,6 +1167,17 @@
 
     <audio id="musicEl" loop></audio>
     <audio id="voiceEl"></audio>
+    <div
+      id="ytPlayerBox"
+      style="
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+      "
+    ></div>
 
     <script>
       /* =========================================================
@@ -1142,17 +1185,24 @@
    ========================================================= */
       const CONFIG = {
         name: "My Beautiful Princess",
+        // Each memory can be a photo or a short video clip.
+        // type: "image" (default) or "video". src can be a local filename
+        // ("photo1.jpg", "clip1.mp4") or a path ("assets/clip1.mp4").
         photos: [
-          { src: "", caption: "First Hello" },
-          { src: "", caption: "First Laugh" },
-          { src: "", caption: "That Trip" },
-          { src: "", caption: "Rainy Day" },
-          { src: "", caption: "Silly Faces" },
-          { src: "", caption: "Just Us" },
+          { src: "First.jpg", caption: "First Meet", type: "image" },
+          { src: "Second.jpg", caption: "In Chainpur😘", type: "image" },
+          { src: "Ktm.mp4", caption: "That Meet🥲", type: "video" },
+          { src: "Third.jpg", caption: "Shakeing hands😁", type: "image" },
+          { src: "FavPhoto.jpeg", caption: "Just You", type: "image" },
+
+          { src: "FavVideo.mp4", caption: "❤️😘", type: "video" },
         ],
-        bestPhoto: { src: "./", caption: "Your Favorite Photo" },
+        bestPhoto: { src: "Tmi.jpeg", caption: "Your Favorite Photo" },
         voiceSrc: "",
-        musicSrc: "Special.mp3",
+        // Accepts a local file ("Special.mp3") OR a YouTube link:
+        // "https://www.youtube.com/watch?v=XXXXXXXXXXX"
+        // "https://youtu.be/XXXXXXXXXXX"
+        musicSrc: "https://youtu.be/C7BWyO5PdLk?si=0ymjyKF0ZlPAukW4",
       };
 
       const TL = {
@@ -1176,6 +1226,55 @@
           line: "(silence — let the music fall away, just say her name softly)",
         },
       ];
+
+      /* =========================================================
+   YOUTUBE MUSIC SUPPORT
+   ========================================================= */
+      function extractYouTubeId(url) {
+        if (!url) return null;
+        const m = url.match(
+          /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([\w-]{11})/,
+        );
+        return m ? m[1] : null;
+      }
+
+      const YT_VIDEO_ID = extractYouTubeId(CONFIG.musicSrc);
+      let ytPlayer = null,
+        ytReady = false,
+        ytPendingPlay = false;
+
+      if (YT_VIDEO_ID) {
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+
+        window.onYouTubeIframeAPIReady = function () {
+          ytPlayer = new YT.Player("ytPlayerBox", {
+            height: "1",
+            width: "1",
+            videoId: YT_VIDEO_ID,
+            playerVars: {
+              autoplay: 0,
+              controls: 0,
+              loop: 1,
+              playlist: YT_VIDEO_ID, // required for loop on a single video
+              playsinline: 1,
+              disablekb: 1,
+              modestbranding: 1,
+            },
+            events: {
+              onReady: () => {
+                ytReady = true;
+                ytPlayer.setVolume(20);
+                if (ytPendingPlay) {
+                  ytPlayer.playVideo();
+                  ytPendingPlay = false;
+                }
+              },
+            },
+          });
+        };
+      }
 
       /* =========================================================
    CANVAS PARTICLE ENGINE
@@ -1332,6 +1431,17 @@
         return chords[Math.floor(t / 8) % chords.length];
       }
       let lastChordIdx = -1;
+      let musicMutedForVideo = false;
+      function stopBackgroundMusic() {
+        musicMutedForVideo = true;
+        if (YT_VIDEO_ID && ytReady && ytPlayer) {
+          ytPlayer.pauseVideo();
+        }
+        const m = document.getElementById("musicEl");
+        if (m && !m.paused) {
+          m.pause();
+        }
+      }
       function playPad(t) {
         if (!actx) return;
         const idx = Math.floor(t / 8);
@@ -1812,7 +1922,7 @@
       function buildCandles() {
         cakeCandles.innerHTML = "";
         candleEls = [];
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 3; i++) {
           const c = document.createElement("div");
           c.className = "candle";
           c.innerHTML = `<div class="flame"></div>`;
@@ -1968,11 +2078,27 @@
           div.className = "memframe";
           div.style.left = pos.x * 100 + "%";
           div.style.top = pos.y * 100 + "%";
-          const thumbStyle = ph.src
-            ? `background-image:url('${ph.src}');background-size:cover;background-position:center;`
-            : `background:linear-gradient(160deg,#2a1c38,#161022);`;
-          div.innerHTML = `<div class="thumb" style="${thumbStyle}">${ph.src ? "" : "Your Photo " + (i + 1)}</div><div class="cap">${ph.caption || ""}</div>`;
+
+          const isVideo = ph.type === "video";
+          let thumbHTML = "";
+          if (ph.src && isVideo) {
+            thumbHTML = `<video class="thumb" src="${ph.src}" muted playsinline autoplay></video>`;
+          } else if (ph.src) {
+            thumbHTML = `<div class="thumb" style="background-image:url('${ph.src}');background-size:cover;background-position:center;"></div>`;
+          } else {
+            thumbHTML = `<div class="thumb" style="background:linear-gradient(160deg,#2a1c38,#161022);">${isVideo ? "Your Video " : "Your Photo "}${i + 1}</div>`;
+          }
+
+          div.innerHTML = `${thumbHTML}<div class="cap">${ph.caption || ""}</div>`;
           memWrap.appendChild(div);
+
+          if (ph.src && isVideo) {
+            const videoEl = div.querySelector("video.thumb");
+            if (videoEl) {
+              videoEl.addEventListener("ended", stopBackgroundMusic);
+            }
+          }
+
           memEls.push({ el: div, pos, phase: Math.random() * Math.PI * 2 });
         });
       }
@@ -2074,6 +2200,24 @@
         finalPhoto.style.backgroundPosition = "center";
         finalPhoto.textContent = "";
       }
+
+      const photoRing = document.getElementById("photoRing");
+      const sparkleWrap = document.getElementById("sparkleWrap");
+      let sparkleEls = [];
+      const SPARKLE_COUNT = 14;
+      for (let i = 0; i < SPARKLE_COUNT; i++) {
+        const s = document.createElement("div");
+        s.className = "sparkle";
+        sparkleWrap.appendChild(s);
+        sparkleEls.push({
+          el: s,
+          angle: Math.random() * Math.PI * 2,
+          radius: 90 + Math.random() * 60,
+          speed: 0.3 + Math.random() * 0.5,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+
       function renderScene8(local) {
         const cx = W / 2,
           cy = H * 0.44;
@@ -2083,16 +2227,49 @@
           p,
         );
 
-        finalPhoto.style.opacity = Math.min(
-          1,
-          Math.max(0, (local - 1.2) / 1.2),
-        );
+        // entrance: settle in with a soft bounce and slight rotation
+        const entrance = Math.min(1, Math.max(0, (local - 1.2) / 1.2));
+        const bounce =
+          entrance < 1
+            ? 1 - Math.pow(1 - entrance, 2) * Math.cos(entrance * Math.PI * 1.5)
+            : 1;
+
+        // gentle heartbeat pulse once the photo has arrived
+        const hbT = Math.max(0, local - 2.4);
+        const heartbeat =
+          1 +
+          0.045 * Math.max(0, Math.sin(hbT * 2.4)) +
+          0.03 * Math.max(0, Math.sin(hbT * 2.4 - 0.6));
+
+        finalPhoto.style.opacity = entrance;
         finalPhoto.style.left = cx - 75 + "px";
         finalPhoto.style.top = cy - 75 + "px";
+        finalPhoto.style.transform = `scale(${bounce * heartbeat}) rotate(${(1 - bounce) * -8}deg)`;
+
+        // glowing ring pulses in time with the heartbeat, like a halo
+        const ringPulse = (Math.sin(hbT * 2.4) + 1) / 2;
+        photoRing.style.opacity = entrance * (0.25 + ringPulse * 0.35);
+        const ringSize = 150 + ringPulse * 30;
+        photoRing.style.width = ringSize + "px";
+        photoRing.style.height = ringSize + "px";
+        photoRing.style.left = cx - ringSize / 2 + "px";
+        photoRing.style.top = cy - ringSize / 2 + "px";
+
+        // sparkles slowly orbit the heart, twinkling in and out
+        sparkleEls.forEach((s) => {
+          const twinkle = (Math.sin(local * s.speed * 3 + s.phase) + 1) / 2;
+          s.el.style.opacity = entrance * twinkle * 0.9;
+          const orbitAngle = s.angle + local * 0.15 * s.speed;
+          const x = cx + Math.cos(orbitAngle) * s.radius;
+          const y = cy + Math.sin(orbitAngle) * s.radius * 0.8;
+          s.el.style.left = x + "px";
+          s.el.style.top = y + "px";
+          s.el.style.transform = `scale(${0.6 + twinkle * 0.8})`;
+        });
 
         const tp = Math.min(1, Math.max(0, (local - 2.4) / 1.4));
         finalText.style.opacity = tp;
-        finalText.style.transform = `translateY(${(1 - tp) * 14}px)`;
+        finalText.style.transform = `translateY(${(1 - tp) * 14}px) scale(${0.96 + tp * 0.04})`;
       }
 
       /* =========================================================
@@ -2180,7 +2357,7 @@
         if (t >= TL.scene6[0] && t < TL.scene6[1])
           drawConstellationLines(t - TL.scene6[0]);
 
-        if (actx && t < TL.scene8[1] - 1) {
+        if (actx && t < TL.scene8[1] - 1 && !musicMutedForVideo) {
           playPad(t);
           const targetVol = t > TL.scene8[0] ? 0.03 : 0.18;
           musicGain.gain.linearRampToValueAtTime(
@@ -2219,10 +2396,24 @@
         if (actx.state === "suspended") actx.resume();
         playing = !playing;
         playBtn.textContent = playing ? "❚❚" : "▶";
+
         if (playing && CONFIG.voiceSrc) {
           const v = document.getElementById("voiceEl");
           v.currentTime = curTime;
           v.play().catch(() => {});
+        }
+
+        if (YT_VIDEO_ID) {
+          if (playing) {
+            if (ytReady) ytPlayer.playVideo();
+            else ytPendingPlay = true;
+          } else if (ytReady) {
+            ytPlayer.pauseVideo();
+          }
+        } else if (CONFIG.musicSrc) {
+          const m = document.getElementById("musicEl");
+          if (playing) m.play().catch(() => {});
+          else m.pause();
         }
       });
       scrub.addEventListener("input", (e) => {
@@ -2232,6 +2423,12 @@
       document.getElementById("restartBtn").addEventListener("click", () => {
         curTime = 0;
         lastChordIdx = -1;
+        if (YT_VIDEO_ID && ytReady) {
+          ytPlayer.seekTo(0);
+        } else {
+          const m = document.getElementById("musicEl");
+          if (m) m.currentTime = 0;
+        }
       });
       const muteBtn = document.getElementById("muteBtn");
       let muted = false;
@@ -2239,13 +2436,19 @@
         muted = !muted;
         if (musicGain) musicGain.gain.value = muted ? 0 : 0.18;
         document.getElementById("voiceEl").muted = muted;
+
+        if (YT_VIDEO_ID && ytReady) {
+          muted ? ytPlayer.mute() : ytPlayer.unMute();
+        } else {
+          document.getElementById("musicEl").muted = muted;
+        }
         muteBtn.textContent = muted ? "🔇 Sound Off" : "🔊 Sound On";
       });
 
       if (CONFIG.voiceSrc) {
         document.getElementById("voiceEl").src = CONFIG.voiceSrc;
       }
-      if (CONFIG.musicSrc) {
+      if (CONFIG.musicSrc && !YT_VIDEO_ID) {
         const m = document.getElementById("musicEl");
         m.src = CONFIG.musicSrc;
         m.volume = 0.2;
